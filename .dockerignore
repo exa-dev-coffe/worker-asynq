@@ -1,0 +1,5 @@
+.git
+.env
+temp.exe
+*.log
+Dockerfile
