@@ -74,17 +74,34 @@ func main() {
 		RootPath:     "/",
 	})
 
+	rootMux := http.NewServeMux()
+
+	// Health check endpoints for Kubernetes liveness & readiness probes
+	rootMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"OK","service":"asynq-worker"}`))
+	})
+	rootMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"OK","service":"asynq-worker"}`))
+	})
+
+	// Mount asynqmon dashboard under root path
+	rootMux.Handle("/", dashboardHandler)
+
 	dashboardPort := config.Config.Port
 	if dashboardPort == "" {
 		dashboardPort = "8085"
 	}
 
-	slog.Info("Starting Asynq Monitoring Dashboard", "port", dashboardPort)
+	slog.Info("Starting Asynq Monitoring Dashboard & Health Server", "port", dashboardPort)
 	
-	// Start HTTP server for monitoring
+	// Start HTTP server for monitoring and health check
 	httpServer := &http.Server{
 		Addr:    ":" + dashboardPort,
-		Handler: dashboardHandler,
+		Handler: rootMux,
 	}
 
 	go func() {
