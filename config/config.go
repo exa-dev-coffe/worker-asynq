@@ -7,11 +7,11 @@ import (
 )
 
 type ConfigSchema struct {
-	RedisUrl              string `mapstructure:"REDIS_URL"`
-	RedisUsername         string `mapstructure:"REDIS_USERNAME"`
-	RedisPassword         string `mapstructure:"REDIS_PASSWORD"`
-	InternalToken         string `mapstructure:"INTERNAL_TOKEN"`
-	Port                  string `mapstructure:"PORT"`
+	RedisUrl      string
+	RedisUsername string
+	RedisPassword string
+	InternalToken string
+	Port          string
 }
 
 var Config ConfigSchema
@@ -21,15 +21,25 @@ func LoadConfig() {
 	viper.SetConfigType("env")
 	viper.AutomaticEnv()
 
-	// Set default values
-	viper.SetDefault("REDIS_URL", "localhost:6379")
-	viper.SetDefault("PORT", "8085")
-
 	if err := viper.ReadInConfig(); err != nil {
 		log.Println("Warning: .env file not found, reading from environment variables")
 	}
 
-	if err := viper.Unmarshal(&Config); err != nil {
-		log.Fatalf("Unable to decode config into struct: %v", err)
+	redisUrl := viper.GetString("REDIS_URL")
+	if redisUrl == "" {
+		redisUrl = "localhost:6379"
+	}
+
+	port := viper.GetString("PORT")
+	if port == "" {
+		port = "8085"
+	}
+
+	Config = ConfigSchema{
+		RedisUrl:      redisUrl,
+		RedisUsername: viper.GetString("REDIS_USERNAME"),
+		RedisPassword: viper.GetString("REDIS_PASSWORD"),
+		InternalToken: viper.GetString("INTERNAL_TOKEN"),
+		Port:          port,
 	}
 }
