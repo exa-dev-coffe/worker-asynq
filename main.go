@@ -38,6 +38,7 @@ func main() {
 
 	redisOpt := asynq.RedisClientOpt{
 		Addr:     config.Config.RedisUrl,
+		Username: config.Config.RedisUsername,
 		Password: config.Config.RedisPassword,
 	}
 

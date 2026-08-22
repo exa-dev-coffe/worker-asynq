@@ -1,4 +1,6 @@
 .env
 temp.exe
+*.exe
 *.log
 worker
+

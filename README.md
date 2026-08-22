@@ -52,6 +52,7 @@ Buat file `.env` di root project berdasarkan `.env.example`:
 
 ```env
 REDIS_URL=localhost:6379
+REDIS_USERNAME=
 REDIS_PASSWORD=your_redis_password
 INTERNAL_TOKEN=your_secure_internal_token
 PORT=8085
@@ -62,6 +63,7 @@ PORT=8085
 | Variable | Default | Deskripsi |
 | :--- | :--- | :--- |
 | `REDIS_URL` | `localhost:6379` | Host & port server Redis |
+| `REDIS_USERNAME` | `""` | Username autentikasi Redis (opsional / Redis ACL) |
 | `REDIS_PASSWORD` | `""` | Password autentikasi Redis (opsional) |
 | `INTERNAL_TOKEN` | *default secret* | Token yang dikirim pada header `X-Internal-Token` saat HTTP callback |
 | `PORT` | `8085` | Port HTTP untuk Asynqmon Dashboard & Health Check |

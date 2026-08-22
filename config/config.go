@@ -8,6 +8,7 @@ import (
 
 type ConfigSchema struct {
 	RedisUrl              string `mapstructure:"REDIS_URL"`
+	RedisUsername         string `mapstructure:"REDIS_USERNAME"`
 	RedisPassword         string `mapstructure:"REDIS_PASSWORD"`
 	InternalToken         string `mapstructure:"INTERNAL_TOKEN"`
 	Port                  string `mapstructure:"PORT"`
