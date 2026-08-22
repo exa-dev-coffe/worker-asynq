@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/spf13/viper"
 )
@@ -22,7 +22,7 @@ func LoadConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Println("Warning: .env file not found, reading from environment variables")
+		slog.Warn("No .env file found, reading from environment variables")
 	}
 
 	redisUrl := viper.GetString("REDIS_URL")
