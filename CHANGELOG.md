@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/exa-dev-coffe/worker-asynq/compare/v1.1.0...v1.2.0) (2026-10-11)
+
+
+### Features
+
+* **worker:** support dynamic http task payload and add test suite ([bc31c57](https://github.com/exa-dev-coffe/worker-asynq/commit/bc31c57dea4e88faa32890b23ef20240df2acfef))
+
 # [1.1.0](https://github.com/exa-dev-coffe/worker-asynq/compare/v1.0.0...v1.1.0) (2026-08-22)
 
 
