@@ -28,17 +28,31 @@ Worker dikonfigurasi dengan **Concurrency: 5** dan prioritas bobot antrean sebag
 
 ### Task Handlers
 
-#### `task:http_post`
-Mengirimkan request HTTP POST ke URL target dengan payload JSON sebagai berikut:
+#### `task:http` / `task:http_post`
+Mengirimkan request HTTP ke URL target (mirip spesifikasi **Google Cloud Tasks HttpRequest**). Mendukung method dinamis, custom headers, custom timeout, dan body.
 
+Format Payload JSON:
 ```json
 {
   "url": "https://api.example.com/webhook",
-  "body": "{\"event\": \"payment_success\", \"order_id\": \"12345\"}"
+  "method": "POST",
+  "headers": {
+    "Authorization": "Bearer custom_secret_token",
+    "X-Custom-Header": "value"
+  },
+  "body": "{\"event\": \"payment_success\", \"order_id\": \"12345\"}",
+  "timeout": 30
 }
 ```
 
-Setiap HTTP request yang dikirimkan oleh worker akan menyertakan header keamanan berikut:
+*Catatan:*
+- `url` *(wajib)*: URL endpoint target.
+- `method` *(opsional)*: Method HTTP (`POST`, `GET`, `PUT`, `PATCH`, `DELETE`). Default: `POST`.
+- `headers` *(opsional)*: Key-value headers. Jika tidak ditentukan, defaultnya adalah `Content-Type: application/json` dan `X-Internal-Token: <INTERNAL_TOKEN>`. Header di payload dapat menimpa (override) header default.
+- `timeout` *(opsional)*: Timeout eksekusi HTTP request dalam satuan detik (default: `15`).
+- `body` *(opsional)*: String body request.
+
+Header default jika tidak ditimpa:
 ```http
 Content-Type: application/json
 X-Internal-Token: <INTERNAL_TOKEN>

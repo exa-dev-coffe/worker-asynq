@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,9 +19,24 @@ import (
 	"github.com/hibiken/asynqmon"
 )
 
-type HTTPPostPayload struct {
-	URL  string `json:"url"`
-	Body string `json:"body"`
+// HTTPTaskPayload represents generic HTTP dispatch task inspired by Cloud Tasks
+type HTTPTaskPayload struct {
+	URL     string            `json:"url"`
+	Method  string            `json:"method,omitempty"`  // HTTP Method: POST, GET, PUT, PATCH, DELETE (default: POST)
+	Headers map[string]string `json:"headers,omitempty"` // Custom HTTP headers
+	Body    string            `json:"body,omitempty"`    // Request body
+	Timeout int               `json:"timeout,omitempty"` // Timeout in seconds (default: 15)
+}
+
+// HTTPPostPayload alias for backward compatibility
+type HTTPPostPayload = HTTPTaskPayload
+
+var defaultHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 20,
+		IdleConnTimeout:     90 * time.Second,
+	},
 }
 
 func initLogger() {
@@ -56,7 +73,8 @@ func main() {
 	)
 
 	mux := asynq.NewServeMux()
-	mux.HandleFunc("task:http_post", handleHTTPPostTask)
+	mux.HandleFunc("task:http_post", handleHTTPTask)
+	mux.HandleFunc("task:http", handleHTTPTask)
 
 	slog.Info("Starting Asynq Server/Worker", "redis", config.Config.RedisUrl)
 
@@ -131,45 +149,72 @@ func main() {
 	slog.Info("Asynq Worker server gracefully stopped.")
 }
 
-func handleHTTPPostTask(ctx context.Context, t *asynq.Task) error {
-	var payload HTTPPostPayload
+func handleHTTPTask(ctx context.Context, t *asynq.Task) error {
+	var payload HTTPTaskPayload
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
-		slog.Error("Failed to parse HTTP Post Task payload", "error", err)
+		slog.Error("Failed to parse HTTP Task payload", "error", err)
 		return err
 	}
 
-	slog.Info("Dispatching HTTP Task callback", "target", payload.URL, "body", payload.Body)
+	method := strings.ToUpper(strings.TrimSpace(payload.Method))
+	if method == "" {
+		method = http.MethodPost
+	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", payload.URL, bytes.NewBufferString(payload.Body))
+	timeout := 15 * time.Second
+	if payload.Timeout > 0 {
+		timeout = time.Duration(payload.Timeout) * time.Second
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	slog.Info("Dispatching HTTP Task", "method", method, "target", payload.URL)
+
+	req, err := http.NewRequestWithContext(reqCtx, method, payload.URL, bytes.NewBufferString(payload.Body))
 	if err != nil {
 		slog.Error("Failed to build HTTP request callback", "error", err)
 		return err
 	}
 
+	// Default headers
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	internalToken := config.Config.InternalToken
 	if internalToken == "" {
 		internalToken = "your_internal_token"
 	}
 	req.Header.Set("X-Internal-Token", internalToken)
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+	// Apply custom headers from payload (can override default Content-Type or X-Internal-Token)
+	for k, v := range payload.Headers {
+		req.Header.Set(k, v)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
-		slog.Error("HTTP dispatch call failed", "error", err)
+		slog.Error("HTTP dispatch call failed", "method", method, "target", payload.URL, "error", err)
 		return err
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+
 	if resp.StatusCode >= 400 {
-		slog.Error("Dispatch request returned error status", "status", resp.StatusCode)
-		return fmt.Errorf("HTTP error status: %d", resp.StatusCode)
+		slog.Error("Dispatch request returned error status", "status", resp.StatusCode, "target", payload.URL, "response", string(respBody))
+		return fmt.Errorf("HTTP error status: %d, response: %s", resp.StatusCode, string(respBody))
 	}
 
-	slog.Info("HTTP Task successfully completed", "status", resp.StatusCode)
+	// Record task result in Asynq if writer is available
+	if rw := t.ResultWriter(); rw != nil {
+		_, _ = rw.Write([]byte(fmt.Sprintf(`{"status":%d}`, resp.StatusCode)))
+	}
+
+	slog.Info("HTTP Task successfully completed", "method", method, "target", payload.URL, "status", resp.StatusCode)
 	return nil
+}
+
+// handleHTTPPostTask alias for backward compatibility
+func handleHTTPPostTask(ctx context.Context, t *asynq.Task) error {
+	return handleHTTPTask(ctx, t)
 }
